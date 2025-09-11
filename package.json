@@ -1,19 +1,19 @@
 {
-  "name": "discord-getting-started",
+  "name": "blueacar-discord-server-bots",
   "private": true,
   "version": "1.0.0",
-  "description": "Discord example app",
+  "description": "BlueAcar Discord Server Bots",
   "main": "app.js",
   "type": "module",
   "engines": {
-    "node": ">=18.x"
+    "node": ">=20.x"
   },
   "scripts": {
     "start": "node app.js",
     "register": "node commands.js",
     "dev": "nodemon app.js"
   },
-  "author": "Shay DeWael",
+  "author": "BlueAcar",
   "license": "MIT",
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250911.0",
