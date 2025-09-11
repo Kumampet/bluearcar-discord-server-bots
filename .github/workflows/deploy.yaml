@@ -25,6 +25,10 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           secrets: |
-            PUBLIC_KEY=${{ secrets.PUBLIC_KEY }}
-            DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
-            APPLICATION_ID=${{ secrets.APPLICATION_ID }}
+            PUBLIC_KEY
+            DISCORD_TOKEN
+            APPLICATION_ID
+        env:
+          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          APPLICATION_ID: ${{ secrets.APPLICATION_ID }}
