@@ -9,9 +9,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # リポジトリをチェックアウト
+      - uses: actions/checkout@v4 # リポジトリをチェックアウト
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -22,9 +22,8 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           secrets: |
-            DISCORD_TOKEN
-            DISCORD_PUBLIC_KEY
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+            PUBLIC_KEY=${{ secrets.PUBLIC_KEY }}
+            DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }}
+            APPLICATION_ID=${{ secrets.APPLICATION_ID }}
