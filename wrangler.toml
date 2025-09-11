@@ -1,0 +1,7 @@
+name = "discord-invite-bot"
+main = "src/index.ts"
+compatibility_date = "2023-01-01"
+
+[vars]
+DISCORD_TOKEN = "${DISCORD_TOKEN}"
+DISCORD_PUBLIC_KEY = "${DISCORD_PUBLIC_KEY}"
