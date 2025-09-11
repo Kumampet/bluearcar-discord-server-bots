@@ -6,8 +6,8 @@ export const handler = async (event: any) => {
   const body = JSON.parse(event.body);
 
   // Discordからの署名検証（セキュリティのため）
-  const signature = headers['x-signature-ed25519'];
-  const timestamp = headers['x-signature-timestamp'];
+  // const signature = headers['x-signature-ed25519'];
+  // const timestamp = headers['x-signature-timestamp'];
 
   // Discordの公開鍵を使って署名を検証するロジックをここに書く
   // 検証が失敗した場合はエラーを返す
