@@ -43,10 +43,10 @@ jobs:
           mapfile -t PKGS < <(echo "${CHANGED_FILES}" | awk -F/ '/^packages\// {print $2}' | sort -u | grep -v '^$' || true)
 
           if [[ ${#PKGS[@]} -eq 0 ]]; then
-            JSON="[]"
+            JSON='[]'
             COUNT=0
           else
-            JSON=$(printf '%s\n' "${PKGS[@]}" | jq -R . | jq -s .)
+            JSON=$(printf '%s\n' "${PKGS[@]}" | jq -R . | jq -sc .)
             COUNT=${#PKGS[@]}
           fi
 
