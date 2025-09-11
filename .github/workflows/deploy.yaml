@@ -6,26 +6,73 @@ on:
       - main
 
 jobs:
+  changed_functions:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.detect.outputs.functions }}
+      count: ${{ steps.detect.outputs.count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed packages under packages/*
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && -n "${{ github.base_ref }}" ]]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            DIFF_RANGE="${BASE_REF}...HEAD"
+          else
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              DIFF_RANGE="HEAD^...HEAD"
+            else
+              DIFF_RANGE=""
+            fi
+          fi
+
+          if [[ -n "${DIFF_RANGE}" ]]; then
+            CHANGED_FILES=$(git diff --name-only ${DIFF_RANGE})
+          else
+            CHANGED_FILES=$(git ls-files)
+          fi
+
+          mapfile -t PKGS < <(echo "${CHANGED_FILES}" | awk -F/ '/^packages\// {print $2}' | sort -u | grep -v '^$' || true)
+
+          if [[ ${#PKGS[@]} -eq 0 ]]; then
+            JSON="[]"
+            COUNT=0
+          else
+            JSON=$(printf '%s\n' "${PKGS[@]}" | jq -R . | jq -s .)
+            COUNT=${#PKGS[@]}
+          fi
+
+          echo "functions=${JSON}" >> "$GITHUB_OUTPUT"
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
   deploy:
     runs-on: ubuntu-latest
+    needs: [changed_functions]
     permissions:
       id-token: write
       contents: read
-    
-    # 変更があった関数のみを特定し、マトリックスとして設定
+    environment: production
+    if: needs.changed_functions.outputs.count != '0'
+
     strategy:
+      fail-fast: false
       matrix:
-        # このステップで、git diff-treeなどを使って変更されたディレクトリを特定し、
-        # 配列として出力するスクリプトを記述します。
-        # 例: ['lambda-hello', 'lambda-goodbye']
         function: ${{ fromJson(needs.changed_functions.outputs.functions) }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
