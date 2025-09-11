@@ -77,7 +77,9 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          npm install --no-save esbuild
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -88,7 +90,28 @@ jobs:
 
       - name: Deploy ${{ matrix.function }} to Lambda
         working-directory: ./packages/${{ matrix.function }}
+        env:
+          ROLE_ARN: ${{ secrets.AWS_LAMBDA_ROLE_ARN }}
         run: |
-          # 各関数のディレクトリに移動してzipファイルを作成
-          zip -r deployment_package.zip .
-          aws lambda update-function-code --function-name ${{ matrix.function }} --zip-file fileb://deployment_package.zip
+          set -euo pipefail
+
+          # TypeScript -> CommonJS へビルド（Lambda Node.js 20）
+          npx esbuild index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=index.js
+
+          # デプロイ用 zip 作成（必要ファイルのみ）
+          zip -r deployment_package.zip index.js
+
+          # 関数が無ければ作成、あればコード更新
+          if ! aws lambda get-function --function-name ${{ matrix.function }} >/dev/null 2>&1; then
+            : "${ROLE_ARN:?ROLE_ARN is required}"
+            aws lambda create-function \
+              --function-name ${{ matrix.function }} \
+              --runtime nodejs20.x \
+              --role "$ROLE_ARN" \
+              --handler index.handler \
+              --zip-file fileb://deployment_package.zip
+          else
+            aws lambda update-function-code \
+              --function-name ${{ matrix.function }} \
+              --zip-file fileb://deployment_package.zip
+          fi

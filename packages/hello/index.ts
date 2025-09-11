@@ -1,4 +1,5 @@
 export const handler = async (event: any) => {
+  console.log(event);
   // Discordからのリクエストヘッダーを取得
   const headers = event.headers;
   // リクエストボディを取得
