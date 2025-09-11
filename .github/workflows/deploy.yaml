@@ -1,34 +1,47 @@
-name: Deploy to Cloudflare Workers
+name: Deploy Lambda Monorepo
 
 on:
   push:
     branches:
-      - main # mainブランチにプッシュされたときに実行
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4 # リポジトリをチェックアウト
+    permissions:
+      id-token: write
+      contents: read
+    
+    # 変更があった関数のみを特定し、マトリックスとして設定
+    strategy:
+      matrix:
+        # このステップで、git diff-treeなどを使って変更されたディレクトリを特定し、
+        # 配列として出力するスクリプトを記述します。
+        # 例: ['lambda-hello', 'lambda-goodbye']
+        function: ${{ fromJson(needs.changed_functions.outputs.functions) }}
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Publish to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            PUBLIC_KEY
-            DISCORD_TOKEN
-            APPLICATION_ID
-        env:
-          PUBLIC_KEY: ${{ secrets.PUBLIC_KEY }}
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          APPLICATION_ID: ${{ secrets.APPLICATION_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy ${{ matrix.function }} to Lambda
+        working-directory: ./packages/${{ matrix.function }}
+        run: |
+          # 各関数のディレクトリに移動してzipファイルを作成
+          zip -r deployment_package.zip .
+          aws lambda update-function-code --function-name ${{ matrix.function }} --zip-file fileb://deployment_package.zip
