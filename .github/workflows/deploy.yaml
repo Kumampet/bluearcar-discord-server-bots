@@ -33,10 +33,25 @@ jobs:
         run: zip -r function.zip . -x "*.git*"
 
       - name: Deploy to Lambda
+        env:
+          ROLE_ARN: ${{ secrets.AWS_LAMBDA_ROLE_ARN }}
         run: |
-          aws lambda update-function-code \
-            --function-name helloDiscordLambda \
-            --zip-file fileb://function.zip
+          set -euo pipefail
+          
+          # 関数が無ければ作成、あればコード更新
+          if ! aws lambda get-function --function-name helloDiscordLambda >/dev/null 2>&1; then
+            : "${ROLE_ARN:?ROLE_ARN is required}"
+            aws lambda create-function \
+              --function-name helloDiscordLambda \
+              --runtime nodejs20.x \
+              --role "$ROLE_ARN" \
+              --handler index.handler \
+              --zip-file fileb://function.zip
+          else
+            aws lambda update-function-code \
+              --function-name helloDiscordLambda \
+              --zip-file fileb://function.zip
+          fi
 
       - name: Update Lambda environment variables
         run: |
