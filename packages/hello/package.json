@@ -1,9 +1,0 @@
-{
-    "name": "@bluearcar/hello",
-    "version": "1.0.0",
-    "private": true,
-    "main": "index.ts",
-    "dependencies": {
-        "discord-interactions": "^4.0.0"
-    }
-}

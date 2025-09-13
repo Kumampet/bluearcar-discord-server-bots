@@ -1,4 +1,4 @@
-name: Deploy Lambda Monorepo
+name: Deploy to AWS Lambda
 
 on:
   push:
@@ -6,67 +6,9 @@ on:
       - main
 
 jobs:
-  changed_functions:
-    runs-on: ubuntu-latest
-    outputs:
-      functions: ${{ steps.detect.outputs.functions }}
-      count: ${{ steps.detect.outputs.count }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed packages under packages/*
-        id: detect
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && -n "${{ github.base_ref }}" ]]; then
-            BASE_REF="origin/${{ github.base_ref }}"
-            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            DIFF_RANGE="${BASE_REF}...HEAD"
-          else
-            if git rev-parse HEAD^ >/dev/null 2>&1; then
-              DIFF_RANGE="HEAD^...HEAD"
-            else
-              DIFF_RANGE=""
-            fi
-          fi
-
-          if [[ -n "${DIFF_RANGE}" ]]; then
-            CHANGED_FILES=$(git diff --name-only ${DIFF_RANGE})
-          else
-            CHANGED_FILES=$(git ls-files)
-          fi
-
-          mapfile -t PKGS < <(echo "${CHANGED_FILES}" | awk -F/ '/^packages\// {print $2}' | sort -u | grep -v '^$' || true)
-
-          if [[ ${#PKGS[@]} -eq 0 ]]; then
-            JSON='[]'
-            COUNT=0
-          else
-            JSON=$(printf '%s\n' "${PKGS[@]}" | jq -R . | jq -sc .)
-            COUNT=${#PKGS[@]}
-          fi
-
-          echo "functions=${JSON}" >> "$GITHUB_OUTPUT"
-          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
-
   deploy:
     runs-on: ubuntu-latest
-    needs: [changed_functions]
-    permissions:
-      id-token: write
-      contents: read
     environment: production
-    if: needs.changed_functions.outputs.count != '0'
-
-    strategy:
-      fail-fast: false
-      matrix:
-        function: ${{ fromJson(needs.changed_functions.outputs.functions) }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,11 +17,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install
-          npm install --no-save esbuild
+        run: npm install
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -88,30 +29,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy ${{ matrix.function }} to Lambda
-        working-directory: ./packages/${{ matrix.function }}
-        env:
-          ROLE_ARN: ${{ secrets.AWS_LAMBDA_ROLE_ARN }}
+      - name: Zip Lambda function
+        run: zip -r function.zip . -x "*.git*"
+
+      - name: Deploy to Lambda
         run: |
-          set -euo pipefail
+          aws lambda update-function-code \
+            --function-name helloDiscordLambda \
+            --zip-file fileb://function.zip
 
-          # TypeScript -> CommonJS へビルド（Lambda Node.js 20）
-          npx esbuild index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=index.js
-
-          # デプロイ用 zip 作成（必要ファイルのみ）
-          zip -r deployment_package.zip index.js
-
-          # 関数が無ければ作成、あればコード更新
-          if ! aws lambda get-function --function-name ${{ matrix.function }} >/dev/null 2>&1; then
-            : "${ROLE_ARN:?ROLE_ARN is required}"
-            aws lambda create-function \
-              --function-name ${{ matrix.function }} \
-              --runtime nodejs20.x \
-              --role "$ROLE_ARN" \
-              --handler index.handler \
-              --zip-file fileb://deployment_package.zip
-          else
-            aws lambda update-function-code \
-              --function-name ${{ matrix.function }} \
-              --zip-file fileb://deployment_package.zip
-          fi
+      - name: Update Lambda environment variables
+        run: |
+          aws lambda update-function-configuration \
+            --function-name helloDiscordLambda \
+            --environment "Variables={DISCORD_PUBLIC_KEY=${{ secrets.DISCORD_PUBLIC_KEY }}}"
