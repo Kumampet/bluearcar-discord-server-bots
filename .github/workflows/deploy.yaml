@@ -30,7 +30,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Zip Lambda function
-        run: zip -r function.zip . -x "*.git*"
+        run: |
+          # node_modulesを含めてzipファイルを作成
+          zip -r function.zip .
 
       - name: Deploy to Lambda
         env:
@@ -43,7 +45,7 @@ jobs:
             : "${ROLE_ARN:?ROLE_ARN is required}"
             aws lambda create-function \
               --function-name helloDiscordLambda \
-              --runtime nodejs20.x \
+              --runtime nodejs18.x \
               --role "$ROLE_ARN" \
               --handler index.handler \
               --zip-file fileb://function.zip
