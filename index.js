@@ -1,4 +1,4 @@
-const { verifyKey } = require('discord-interactions');
+import { verifyKey } from 'discord-interactions';
 
 // Discordの公開鍵を環境変数から取得
 const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY;
